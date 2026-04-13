@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Point Cloud Controls</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #1f1f1f;
+      --panel: #2a2a2a;
+      --text: #f2f2f2;
+      --muted: #bdbdbd;
+      --accent: #4ea1ff;
+      --border: #444;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      padding: 16px;
+      max-width: 420px;
+    }
+
+    h1 {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+    }
+
+    p {
+      margin: 0 0 14px 0;
+      color: var(--muted);
+      line-height: 1.4;
+      font-size: 13px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      margin-bottom: 12px;
+    }
+
+    .row:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #111;
+      color: var(--text);
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button {
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+
+    button.secondary {
+      background: #555;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+      min-height: 16px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Point Cloud Controls</h1>
+    <p>
+      Tune how many points stay visible and how the cloud is drawn.
+      Higher values can look better but may reduce performance.
+    </p>
+
+    <div class="card">
+      <div class="small">Presets</div>
+      <div class="preset-grid">
+        <button id="presetFast">Fast</button>
+        <button id="presetBalanced">Balanced</button>
+        <button id="presetHigh">High Retention</button>
+        <button id="presetMax">Max Quality</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label for="pointBudget">
+          <span>Point budget</span>
+          <span id="pointBudgetValue">3000000</span>
+        </label>
+        <input id="pointBudget" type="range" min="250000" max="10000000" step="250000" value="3000000">
+      </div>
+
+      <div class="row">
+        <label for="densityBias">
+          <span>Density bias</span>
+          <span id="densityBiasValue">0.50</span>
+        </label>
+        <input id="densityBias" type="range" min="0" max="2" step="0.05" value="0.5">
+      </div>
+
+      <div class="row">
+        <label for="pointSize">
+          <span>Point size</span>
+          <span id="pointSizeValue">1.2</span>
+        </label>
+        <input id="pointSize" type="range" min="0.5" max="5" step="0.1" value="1.2">
+      </div>
+
+      <div class="row">
+        <label for="shading">Shading</label>
+        <select id="shading">
+          <option value="DEFAULT">Default</option>
+          <option value="EYE_DOME_LIGHTING">Eye dome lighting</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="edlStrength">
+          <span>EDL strength</span>
+          <span id="edlStrengthValue">1.0</span>
+        </label>
+        <input id="edlStrength" type="range" min="0" max="5" step="0.1" value="1.0">
+      </div>
+
+      <div class="row">
+        <label for="edlRadius">
+          <span>EDL radius</span>
+          <span id="edlRadiusValue">1.5</span>
+        </label>
+        <input id="edlRadius" type="range" min="0" max="5" step="0.1" value="1.5">
+      </div>
+
+      <div class="row">
+        <label for="sizeAttenuation">Size attenuation</label>
+        <select id="sizeAttenuation">
+          <option value="true">On</option>
+          <option value="false">Off</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="pointColorBy">Color by</label>
+        <select id="pointColorBy">
+          <option value="RGB">RGB</option>
+          <option value="INTENSITY">Intensity</option>
+          <option value="ELEVATION">Elevation</option>
+          <option value="CLASSIFICATION">Classification</option>
+        </select>
+      </div>
+
+      <div class="buttons">
+        <button id="applyBtn">Apply</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+      </div>
+
+      <div class="status" id="status">Connecting to Trimble Connect…</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as Extensions from "https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api@0.3.34/+esm";
+
+    let API = null;
+
+    const els = {
+      pointBudget: document.getElementById("pointBudget"),
+      pointBudgetValue: document.getElementById("pointBudgetValue"),
+      densityBias: document.getElementById("densityBias"),
+      densityBiasValue: document.getElementById("densityBiasValue"),
+      pointSize: document.getElementById("pointSize"),
+      pointSizeValue: document.getElementById("pointSizeValue"),
+      shading: document.getElementById("shading"),
+      edlStrength: document.getElementById("edlStrength"),
+      edlStrengthValue: document.getElementById("edlStrengthValue"),
+      edlRadius: document.getElementById("edlRadius"),
+      edlRadiusValue: document.getElementById("edlRadiusValue"),
+      sizeAttenuation: document.getElementById("sizeAttenuation"),
+      pointColorBy: document.getElementById("pointColorBy"),
+      applyBtn: document.getElementById("applyBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      presetFast: document.getElementById("presetFast"),
+      presetBalanced: document.getElementById("presetBalanced"),
+      presetHigh: document.getElementById("presetHigh"),
+      presetMax: document.getElementById("presetMax"),
+      status: document.getElementById("status")
+    };
+
+    function setStatus(msg) {
+      els.status.textContent = msg;
+      if (API?.extension?.setStatusMessage) {
+        API.extension.setStatusMessage(msg).catch(() => {});
+      }
+    }
+
+    function syncLabels() {
+      els.pointBudgetValue.textContent = Number(els.pointBudget.value).toLocaleString();
+      els.densityBiasValue.textContent = Number(els.densityBias.value).toFixed(2);
+      els.pointSizeValue.textContent = Number(els.pointSize.value).toFixed(1);
+      els.edlStrengthValue.textContent = Number(els.edlStrength.value).toFixed(1);
+      els.edlRadiusValue.textContent = Number(els.edlRadius.value).toFixed(1);
+    }
+
+    function getSettingsFromUi() {
+      return {
+        pointBudget: Number(els.pointBudget.value),
+        densityBias: Number(els.densityBias.value),
+        pointSize: Number(els.pointSize.value),
+        shading: els.shading.value,
+        edlStrength: Number(els.edlStrength.value),
+        edlRadius: Number(els.edlRadius.value),
+        sizeAttenuation: els.sizeAttenuation.value === "true",
+        pointColorBy: els.pointColorBy.value
+      };
+    }
+
+    function applyPreset(name) {
+      const presets = {
+        fast: {
+          pointBudget: 1000000,
+          densityBias: 0.10,
+          pointSize: 1.0,
+          shading: "DEFAULT",
+          edlStrength: 0.0,
+          edlRadius: 0.0,
+          sizeAttenuation: true,
+          pointColorBy: "RGB"
+        },
+        balanced: {
+          pointBudget: 3000000,
+          densityBias: 0.50,
+          pointSize: 1.2,
+          shading: "EYE_DOME_LIGHTING",
+          edlStrength: 1.0,
+          edlRadius: 1.5,
+          sizeAttenuation: true,
+          pointColorBy: "RGB"
+        },
+        high: {
+          pointBudget: 6000000,
+          densityBias: 0.90,
+          pointSize: 1.3,
+          shading: "EYE_DOME_LIGHTING",
+          edlStrength: 1.4,
+          edlRadius: 1.8,
+          sizeAttenuation: true,
+          pointColorBy: "RGB"
+        },
+        max: {
+          pointBudget: 10000000,
+          densityBias: 1.50,
+          pointSize: 1.5,
+          shading: "EYE_DOME_LIGHTING",
+          edlStrength: 1.8,
+          edlRadius: 2.2,
+          sizeAttenuation: true,
+          pointColorBy: "RGB"
+        }
+      };
+
+      const p = presets[name];
+      els.pointBudget.value = p.pointBudget;
+      els.densityBias.value = p.densityBias;
+      els.pointSize.value = p.pointSize;
+      els.shading.value = p.shading;
+      els.edlStrength.value = p.edlStrength;
+      els.edlRadius.value = p.edlRadius;
+      els.sizeAttenuation.value = String(p.sizeAttenuation);
+      els.pointColorBy.value = p.pointColorBy;
+      syncLabels();
+    }
+
+    async function applySettings() {
+      if (!API) {
+        setStatus("API not connected yet.");
+        return;
+      }
+
+      try {
+        const settings = getSettingsFromUi();
+        const ok = await API.viewer.setPointCloudSettings(settings);
+
+        if (ok) {
+          setStatus("Point cloud settings applied.");
+        } else {
+          setStatus("Trimble Connect did not accept the settings.");
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to apply settings. Check browser console.");
+      }
+    }
+
+    async function connectApi() {
+      try {
+        API = await Extensions.connect(
+          window.parent,
+          (event, args) => {
+            if (event === "extension.command") {
+              console.log("Command:", args?.data);
+            }
+          },
+          30000
+        );
+
+        await API.ui.setMenu({
+          title: "Point Cloud Controls",
+          icon: "https://mrwishywashy.github.io/tc-pointcloud-controls/icon.svg",
+          command: "POINTCLOUD_MAIN",
+          subMenus: [
+            {
+              title: "Controls",
+              icon: "https://mrwishywashy.github.io/tc-pointcloud-controls/icon.svg",
+              command: "POINTCLOUD_CONTROLS"
+            }
+          ]
+        });
+
+        await API.ui.setActiveMenuItem("POINTCLOUD_CONTROLS");
+        setStatus("Connected. Adjust settings and click Apply.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Could not connect to Trimble Connect.");
+      }
+    }
+
+    [
+      els.pointBudget,
+      els.densityBias,
+      els.pointSize,
+      els.edlStrength,
+      els.edlRadius
+    ].forEach(el => el.addEventListener("input", syncLabels));
+
+    els.applyBtn.addEventListener("click", applySettings);
+    els.resetBtn.addEventListener("click", () => {
+      applyPreset("balanced");
+      setStatus("Reset to Balanced preset.");
+    });
+
+    els.presetFast.addEventListener("click", () => applyPreset("fast"));
+    els.presetBalanced.addEventListener("click", () => applyPreset("balanced"));
+    els.presetHigh.addEventListener("click", () => applyPreset("high"));
+    els.presetMax.addEventListener("click", () => applyPreset("max"));
+
+    applyPreset("balanced");
+    syncLabels();
+    connectApi();
+  </script>
+</body>
+</html>
