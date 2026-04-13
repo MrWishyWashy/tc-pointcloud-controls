@@ -1,0 +1,7 @@
+{
+  "title": "Point Cloud Controls",
+  "icon": "https://mrwishywashy.github.io/tc-pointcloud-controls/icon.svg",
+  "url": "https://mrwishywashy.github.io/tc-pointcloud-controls/",
+  "description": "Adjust point cloud point budget, density bias, point size, and shading.",
+  "enabled": true
+}
