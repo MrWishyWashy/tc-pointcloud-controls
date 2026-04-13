@@ -357,20 +357,7 @@
           30000
         );
 
-        await API.ui.setMenu({
-          title: "Point Cloud Controls",
-          icon: "https://mrwishywashy.github.io/tc-pointcloud-controls/icon.svg",
-          command: "POINTCLOUD_MAIN",
-          subMenus: [
-            {
-              title: "Controls",
-              icon: "https://mrwishywashy.github.io/tc-pointcloud-controls/icon.svg",
-              command: "POINTCLOUD_CONTROLS"
-            }
-          ]
-        });
 
-        await API.ui.setActiveMenuItem("POINTCLOUD_CONTROLS");
         setStatus("Connected. Adjust settings and click Apply.");
       } catch (err) {
         console.error(err);
