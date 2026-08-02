@@ -32,6 +32,11 @@
       font-size: 20px;
     }
 
+    h2 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+
     p {
       margin: 0 0 14px 0;
       color: var(--muted);
@@ -77,6 +82,17 @@
       color: var(--text);
     }
 
+    input[type="color"] {
+      width: 40px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #111;
+      cursor: pointer;
+      flex: none;
+    }
+
     .buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -98,6 +114,11 @@
       background: #555;
     }
 
+    button.full {
+      width: 100%;
+      margin-top: 8px;
+    }
+
     .preset-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -115,6 +136,72 @@
     .small {
       font-size: 12px;
       color: var(--muted);
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .color-pair {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .color-pair span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .mode-section {
+      display: none;
+      border-top: 1px solid var(--border);
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+
+    .mode-section.active {
+      display: block;
+    }
+
+    .class-list {
+      max-height: 230px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding-right: 4px;
+    }
+
+    .class-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      padding: 4px 0;
+    }
+
+    .class-row span {
+      flex: 1;
+    }
+
+    .class-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .class-actions button {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 12px;
     }
   </style>
 </head>
@@ -162,6 +249,15 @@
       </div>
 
       <div class="row">
+        <label for="pointShape">Point shape</label>
+        <select id="pointShape">
+          <option value="0">Square</option>
+          <option value="1">Circle</option>
+          <option value="2">Paraboloid</option>
+        </select>
+      </div>
+
+      <div class="row">
         <label for="shading">Shading</label>
         <select id="shading">
           <option value="DEFAULT">Default</option>
@@ -196,11 +292,72 @@
       <div class="row">
         <label for="pointColorBy">Color by</label>
         <select id="pointColorBy">
-          <option value="RGB">RGB</option>
-          <option value="INTENSITY">Intensity</option>
+          <option value="RGB">RGB (scan colors)</option>
+          <option value="RGB_HEIGHT">RGB blended with elevation</option>
           <option value="ELEVATION">Elevation</option>
+          <option value="INTENSITY">Intensity</option>
+          <option value="INTENSITY_CLASSIFICATION">Intensity + classification</option>
           <option value="CLASSIFICATION">Classification</option>
         </select>
+      </div>
+
+      <!-- Elevation coloring, only relevant when Color by = Elevation -->
+      <div class="mode-section" id="elevationSection">
+        <h2>Elevation coloring</h2>
+        <div class="two-col row">
+          <div>
+            <label for="elevationBottom">Bottom (m)</label>
+            <input id="elevationBottom" type="number" step="0.1" placeholder="auto">
+          </div>
+          <div>
+            <label for="elevationTop">Top (m)</label>
+            <input id="elevationTop" type="number" step="0.1" placeholder="auto">
+          </div>
+        </div>
+        <div class="row">
+          <label>Gradient</label>
+          <div class="color-pair">
+            <input id="elevationLowColor" type="color" value="#2255cc">
+            <span>low &rarr; high</span>
+            <input id="elevationHighColor" type="color" value="#cc2222">
+          </div>
+        </div>
+        <div class="hint">Leave bottom/top blank to let Trimble Connect use the point cloud's full elevation range.</div>
+      </div>
+
+      <!-- Intensity coloring, only relevant when Color by = Intensity / Intensity+Classification -->
+      <div class="mode-section" id="intensitySection">
+        <h2>Intensity coloring</h2>
+        <div class="two-col row">
+          <div>
+            <label for="intensityMin">Min</label>
+            <input id="intensityMin" type="number" step="1" placeholder="0">
+          </div>
+          <div>
+            <label for="intensityMax">Max</label>
+            <input id="intensityMax" type="number" step="1" placeholder="65536">
+          </div>
+        </div>
+        <div class="row">
+          <label>Gradient</label>
+          <div class="color-pair">
+            <input id="intensityLowColor" type="color" value="#111111">
+            <span>low &rarr; high</span>
+            <input id="intensityHighColor" type="color" value="#ffffff">
+          </div>
+        </div>
+        <div class="hint">Leave min/max blank to use Trimble Connect's default intensity range (0-65536).</div>
+      </div>
+
+      <!-- Classification coloring, only relevant when Color by = Classification / Intensity+Classification -->
+      <div class="mode-section" id="classificationSection">
+        <h2>Classification colors</h2>
+        <div class="class-list" id="classificationList"></div>
+        <div class="class-actions">
+          <button type="button" class="secondary" id="classShowAll">Show all</button>
+          <button type="button" class="secondary" id="classHideAll">Hide all</button>
+        </div>
+        <div class="hint">Standard ASPRS LAS classification codes 0-18. Codes above 18 (if present in the scan) keep their default rendering.</div>
       </div>
 
       <div class="buttons">
@@ -210,10 +367,61 @@
 
       <div class="status" id="status">Connecting to Trimble Connect…</div>
     </div>
+
+    <div class="card">
+      <div class="row">
+        <label for="viewerTransparency">
+          <span>3D view transparency</span>
+          <span id="viewerTransparencyValue">0%</span>
+        </label>
+        <input id="viewerTransparency" type="range" min="0" max="100" step="5" value="0">
+        <div class="hint">
+          This uses the viewer-wide opacity control - the Trimble Connect API does not expose a
+          transparency setting scoped to just the point cloud, so this affects every loaded model, not only the point cloud.
+        </div>
+      </div>
+      <button id="applyTransparencyBtn" class="full secondary">Apply view transparency</button>
+    </div>
   </div>
 
   <script type="module">
     import * as Extensions from "https://cdn.jsdelivr.net/npm/trimble-connect-workspace-api@0.3.34/+esm";
+
+    // trimble-connect-workspace-api ships PointColorType / PointShape as TypeScript
+    // "const enum"s, which are erased at compile time and are NOT exported from the
+    // runtime bundle. The numeric values below are taken from the published .d.ts
+    // (dist/Workspace/common.d.ts) since the plain-JS extension has no type import
+    // to fall back on.
+    const PointColorType = {
+      RGB: 0,
+      ELEVATION: 3,
+      INTENSITY: 4,
+      CLASSIFICATION: 8,
+      RGB_HEIGHT: 13,
+      INTENSITY_CLASSIFICATION: 14
+    };
+
+    const CLASSIFICATIONS = [
+      { code: 0, label: "Created / never classified", color: "#646464" },
+      { code: 1, label: "Unclassified", color: "#8c8c8c" },
+      { code: 2, label: "Ground", color: "#8b5a2b" },
+      { code: 3, label: "Low vegetation", color: "#64b450" },
+      { code: 4, label: "Medium vegetation", color: "#3c963c" },
+      { code: 5, label: "High vegetation", color: "#146e14" },
+      { code: 6, label: "Building", color: "#e69628" },
+      { code: 7, label: "Low point (noise)", color: "#ff0000" },
+      { code: 8, label: "Reserved", color: "#969696" },
+      { code: 9, label: "Water", color: "#1e5ac8" },
+      { code: 10, label: "Rail", color: "#787878" },
+      { code: 11, label: "Road surface", color: "#3c3c3c" },
+      { code: 12, label: "Reserved", color: "#969696" },
+      { code: 13, label: "Wire guard", color: "#c8c800" },
+      { code: 14, label: "Wire conductor", color: "#dcdc00" },
+      { code: 15, label: "Transmission tower", color: "#b450b4" },
+      { code: 16, label: "Wire connector", color: "#c878c8" },
+      { code: 17, label: "Bridge deck", color: "#6464b4" },
+      { code: 18, label: "High noise", color: "#ff00ff" }
+    ];
 
     let API = null;
 
@@ -224,6 +432,7 @@
       densityBiasValue: document.getElementById("densityBiasValue"),
       pointSize: document.getElementById("pointSize"),
       pointSizeValue: document.getElementById("pointSizeValue"),
+      pointShape: document.getElementById("pointShape"),
       shading: document.getElementById("shading"),
       edlStrength: document.getElementById("edlStrength"),
       edlStrengthValue: document.getElementById("edlStrengthValue"),
@@ -231,12 +440,29 @@
       edlRadiusValue: document.getElementById("edlRadiusValue"),
       sizeAttenuation: document.getElementById("sizeAttenuation"),
       pointColorBy: document.getElementById("pointColorBy"),
+      elevationSection: document.getElementById("elevationSection"),
+      elevationBottom: document.getElementById("elevationBottom"),
+      elevationTop: document.getElementById("elevationTop"),
+      elevationLowColor: document.getElementById("elevationLowColor"),
+      elevationHighColor: document.getElementById("elevationHighColor"),
+      intensitySection: document.getElementById("intensitySection"),
+      intensityMin: document.getElementById("intensityMin"),
+      intensityMax: document.getElementById("intensityMax"),
+      intensityLowColor: document.getElementById("intensityLowColor"),
+      intensityHighColor: document.getElementById("intensityHighColor"),
+      classificationSection: document.getElementById("classificationSection"),
+      classificationList: document.getElementById("classificationList"),
+      classShowAll: document.getElementById("classShowAll"),
+      classHideAll: document.getElementById("classHideAll"),
       applyBtn: document.getElementById("applyBtn"),
       resetBtn: document.getElementById("resetBtn"),
       presetFast: document.getElementById("presetFast"),
       presetBalanced: document.getElementById("presetBalanced"),
       presetHigh: document.getElementById("presetHigh"),
       presetMax: document.getElementById("presetMax"),
+      viewerTransparency: document.getElementById("viewerTransparency"),
+      viewerTransparencyValue: document.getElementById("viewerTransparencyValue"),
+      applyTransparencyBtn: document.getElementById("applyTransparencyBtn"),
       status: document.getElementById("status")
     };
 
@@ -247,25 +473,106 @@
       }
     }
 
+    function buildClassificationList() {
+      els.classificationList.innerHTML = "";
+      CLASSIFICATIONS.forEach(({ code, label, color }) => {
+        const row = document.createElement("div");
+        row.className = "class-row";
+        row.dataset.code = String(code);
+        row.innerHTML = `
+          <input type="checkbox" checked>
+          <input type="color" value="${color}">
+          <span>${code} - ${label}</span>
+        `;
+        els.classificationList.appendChild(row);
+      });
+    }
+
+    function setClassificationVisibility(visible) {
+      els.classificationList.querySelectorAll(".class-row input[type=checkbox]").forEach(cb => {
+        cb.checked = visible;
+      });
+    }
+
+    function hexToColor(hex) {
+      const v = hex.replace("#", "");
+      return {
+        r: parseInt(v.substring(0, 2), 16),
+        g: parseInt(v.substring(2, 4), 16),
+        b: parseInt(v.substring(4, 6), 16)
+      };
+    }
+
     function syncLabels() {
       els.pointBudgetValue.textContent = Number(els.pointBudget.value).toLocaleString();
       els.densityBiasValue.textContent = Number(els.densityBias.value).toFixed(2);
       els.pointSizeValue.textContent = Number(els.pointSize.value).toFixed(1);
       els.edlStrengthValue.textContent = Number(els.edlStrength.value).toFixed(1);
       els.edlRadiusValue.textContent = Number(els.edlRadius.value).toFixed(1);
+      els.viewerTransparencyValue.textContent = `${els.viewerTransparency.value}%`;
+    }
+
+    function updateColorModeVisibility() {
+      const mode = els.pointColorBy.value;
+      els.elevationSection.classList.toggle("active", mode === "ELEVATION");
+      els.intensitySection.classList.toggle(
+        "active",
+        mode === "INTENSITY" || mode === "INTENSITY_CLASSIFICATION"
+      );
+      els.classificationSection.classList.toggle(
+        "active",
+        mode === "CLASSIFICATION" || mode === "INTENSITY_CLASSIFICATION"
+      );
+    }
+
+    function getClassificationSettings() {
+      const classificationColors = [];
+      const classificationVisibility = [];
+      els.classificationList.querySelectorAll(".class-row").forEach(row => {
+        const code = Number(row.dataset.code);
+        const colorInput = row.querySelector("input[type=color]");
+        const checkbox = row.querySelector("input[type=checkbox]");
+        classificationColors[code] = hexToColor(colorInput.value);
+        classificationVisibility[code] = checkbox.checked;
+      });
+      return { classificationColors, classificationVisibility };
     }
 
     function getSettingsFromUi() {
-      return {
+      const settings = {
         pointBudget: Number(els.pointBudget.value),
         densityBias: Number(els.densityBias.value),
         pointSize: Number(els.pointSize.value),
+        pointShape: Number(els.pointShape.value),
         shading: els.shading.value,
         edlStrength: Number(els.edlStrength.value),
         edlRadius: Number(els.edlRadius.value),
         sizeAttenuation: els.sizeAttenuation.value === "true",
-        pointColorBy: els.pointColorBy.value
+        pointColorBy: PointColorType[els.pointColorBy.value]
       };
+
+      const elevationBottom = els.elevationBottom.value.trim();
+      const elevationTop = els.elevationTop.value.trim();
+      if (elevationBottom !== "") settings.elevationBottom = Number(elevationBottom);
+      if (elevationTop !== "") settings.elevationTop = Number(elevationTop);
+      settings.elevationGradient = [
+        [0, hexToColor(els.elevationLowColor.value)],
+        [1, hexToColor(els.elevationHighColor.value)]
+      ];
+
+      const intensityMin = els.intensityMin.value.trim();
+      const intensityMax = els.intensityMax.value.trim();
+      if (intensityMin !== "" && intensityMax !== "") {
+        settings.intensityRange = { x: Number(intensityMin), y: Number(intensityMax) };
+      }
+      settings.intensityGradient = [
+        [0, hexToColor(els.intensityLowColor.value)],
+        [1, hexToColor(els.intensityHighColor.value)]
+      ];
+
+      Object.assign(settings, getClassificationSettings());
+
+      return settings;
     }
 
     function applyPreset(name) {
@@ -316,11 +623,13 @@
       els.pointBudget.value = p.pointBudget;
       els.densityBias.value = p.densityBias;
       els.pointSize.value = p.pointSize;
+      els.pointShape.value = "0";
       els.shading.value = p.shading;
       els.edlStrength.value = p.edlStrength;
       els.edlRadius.value = p.edlRadius;
       els.sizeAttenuation.value = String(p.sizeAttenuation);
       els.pointColorBy.value = p.pointColorBy;
+      updateColorModeVisibility();
       syncLabels();
     }
 
@@ -345,6 +654,21 @@
       }
     }
 
+    async function applyTransparency() {
+      if (!API) {
+        setStatus("API not connected yet.");
+        return;
+      }
+
+      try {
+        await API.viewer.setOpacity(Number(els.viewerTransparency.value));
+        setStatus("3D view transparency applied.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to apply transparency. Check browser console.");
+      }
+    }
+
     async function connectApi() {
       try {
         API = await Extensions.connect(
@@ -356,7 +680,6 @@
           },
           30000
         );
-
 
         setStatus("Connected. Adjust settings and click Apply.");
       } catch (err) {
@@ -370,12 +693,29 @@
       els.densityBias,
       els.pointSize,
       els.edlStrength,
-      els.edlRadius
+      els.edlRadius,
+      els.viewerTransparency
     ].forEach(el => el.addEventListener("input", syncLabels));
 
+    els.pointColorBy.addEventListener("change", updateColorModeVisibility);
+    els.classShowAll.addEventListener("click", () => setClassificationVisibility(true));
+    els.classHideAll.addEventListener("click", () => setClassificationVisibility(false));
+
     els.applyBtn.addEventListener("click", applySettings);
+    els.applyTransparencyBtn.addEventListener("click", applyTransparency);
     els.resetBtn.addEventListener("click", () => {
       applyPreset("balanced");
+      els.elevationBottom.value = "";
+      els.elevationTop.value = "";
+      els.elevationLowColor.value = "#2255cc";
+      els.elevationHighColor.value = "#cc2222";
+      els.intensityMin.value = "";
+      els.intensityMax.value = "";
+      els.intensityLowColor.value = "#111111";
+      els.intensityHighColor.value = "#ffffff";
+      buildClassificationList();
+      els.viewerTransparency.value = "0";
+      syncLabels();
       setStatus("Reset to Balanced preset.");
     });
 
@@ -384,6 +724,7 @@
     els.presetHigh.addEventListener("click", () => applyPreset("high"));
     els.presetMax.addEventListener("click", () => applyPreset("max"));
 
+    buildClassificationList();
     applyPreset("balanced");
     syncLabels();
     connectApi();
