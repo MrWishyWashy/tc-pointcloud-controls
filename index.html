@@ -614,12 +614,24 @@
       syncLabels();
     }
 
-    // Best-effort heuristic to find loaded point cloud model IDs, since
-    // getPointClouds() only returns clouds added via addPointCloud(), not
-    // ones loaded from the project file tree. If nothing matches, we fall
-    // back to calling setPointCloudSettings with no modelIds filter (which
-    // is what the extension has always done).
+    // Finds point cloud model IDs to target with setPointCloudSettings.
+    // getPointClouds() only returns clouds added via addPointCloud() - not
+    // ones loaded from the project file tree - but that's what showed data
+    // for this project, so it's the primary source. getModels() is kept as
+    // a fallback for point clouds loaded via the file tree instead.
     async function findPointCloudModelIds() {
+      try {
+        const clouds = await API.viewer.getPointClouds();
+        console.log("[PointCloudControls] getPointClouds() ->", clouds);
+        const ids = (clouds || []).map(c => c.id).filter(Boolean);
+        if (ids.length) {
+          console.log("[PointCloudControls] point cloud ids (from getPointClouds) ->", ids);
+          return ids;
+        }
+      } catch (err) {
+        console.warn("[PointCloudControls] getPointClouds() failed", err);
+      }
+
       try {
         const models = await API.viewer.getModels("loaded");
         console.log("[PointCloudControls] getModels('loaded') ->", models);
