@@ -367,21 +367,6 @@
 
       <div class="status" id="status">Connecting to Trimble Connect…</div>
     </div>
-
-    <div class="card">
-      <div class="row">
-        <label for="viewerTransparency">
-          <span>3D view transparency</span>
-          <span id="viewerTransparencyValue">0%</span>
-        </label>
-        <input id="viewerTransparency" type="range" min="0" max="100" step="5" value="0">
-        <div class="hint">
-          This uses the viewer-wide opacity control - the Trimble Connect API does not expose a
-          transparency setting scoped to just the point cloud, so this affects every loaded model, not only the point cloud.
-        </div>
-      </div>
-      <button id="applyTransparencyBtn" class="full secondary">Apply view transparency</button>
-    </div>
   </div>
 
   <script type="module">
@@ -460,9 +445,6 @@
       presetBalanced: document.getElementById("presetBalanced"),
       presetHigh: document.getElementById("presetHigh"),
       presetMax: document.getElementById("presetMax"),
-      viewerTransparency: document.getElementById("viewerTransparency"),
-      viewerTransparencyValue: document.getElementById("viewerTransparencyValue"),
-      applyTransparencyBtn: document.getElementById("applyTransparencyBtn"),
       status: document.getElementById("status")
     };
 
@@ -509,7 +491,6 @@
       els.pointSizeValue.textContent = Number(els.pointSize.value).toFixed(1);
       els.edlStrengthValue.textContent = Number(els.edlStrength.value).toFixed(1);
       els.edlRadiusValue.textContent = Number(els.edlRadius.value).toFixed(1);
-      els.viewerTransparencyValue.textContent = `${els.viewerTransparency.value}%`;
     }
 
     function updateColorModeVisibility() {
@@ -633,6 +614,26 @@
       syncLabels();
     }
 
+    // Best-effort heuristic to find loaded point cloud model IDs, since
+    // getPointClouds() only returns clouds added via addPointCloud(), not
+    // ones loaded from the project file tree. If nothing matches, we fall
+    // back to calling setPointCloudSettings with no modelIds filter (which
+    // is what the extension has always done).
+    async function findPointCloudModelIds() {
+      try {
+        const models = await API.viewer.getModels("loaded");
+        console.log("[PointCloudControls] getModels('loaded') ->", models);
+        const matches = models.filter(m =>
+          /point ?cloud|\.e57|\.las|\.laz|\.rcp|\.rcs/i.test(`${m.type} ${m.name}`)
+        );
+        console.log("[PointCloudControls] point-cloud-like models ->", matches);
+        return matches.map(m => m.id);
+      } catch (err) {
+        console.warn("[PointCloudControls] getModels() failed", err);
+        return [];
+      }
+    }
+
     async function applySettings() {
       if (!API) {
         setStatus("API not connected yet.");
@@ -641,7 +642,16 @@
 
       try {
         const settings = getSettingsFromUi();
-        const ok = await API.viewer.setPointCloudSettings(settings);
+        const modelIds = await findPointCloudModelIds();
+
+        console.log("[PointCloudControls] settings payload ->", JSON.parse(JSON.stringify(settings)));
+        console.log("[PointCloudControls] modelIds ->", modelIds);
+
+        const ok = modelIds.length
+          ? await API.viewer.setPointCloudSettings(settings, modelIds)
+          : await API.viewer.setPointCloudSettings(settings);
+
+        console.log("[PointCloudControls] setPointCloudSettings resolved ->", ok);
 
         if (ok) {
           setStatus("Point cloud settings applied.");
@@ -651,21 +661,6 @@
       } catch (err) {
         console.error(err);
         setStatus("Failed to apply settings. Check browser console.");
-      }
-    }
-
-    async function applyTransparency() {
-      if (!API) {
-        setStatus("API not connected yet.");
-        return;
-      }
-
-      try {
-        await API.viewer.setOpacity(Number(els.viewerTransparency.value));
-        setStatus("3D view transparency applied.");
-      } catch (err) {
-        console.error(err);
-        setStatus("Failed to apply transparency. Check browser console.");
       }
     }
 
@@ -682,6 +677,20 @@
         );
 
         setStatus("Connected. Adjust settings and click Apply.");
+
+        // Diagnostics only - safe to ignore if these fail.
+        try {
+          const models = await API.viewer.getModels("loaded");
+          console.log("[PointCloudControls] loaded models at connect ->", models);
+        } catch (diagErr) {
+          console.warn("[PointCloudControls] could not list models", diagErr);
+        }
+        try {
+          const clouds = await API.viewer.getPointClouds();
+          console.log("[PointCloudControls] getPointClouds() ->", clouds);
+        } catch (diagErr) {
+          console.warn("[PointCloudControls] getPointClouds() failed", diagErr);
+        }
       } catch (err) {
         console.error(err);
         setStatus("Could not connect to Trimble Connect.");
@@ -693,8 +702,7 @@
       els.densityBias,
       els.pointSize,
       els.edlStrength,
-      els.edlRadius,
-      els.viewerTransparency
+      els.edlRadius
     ].forEach(el => el.addEventListener("input", syncLabels));
 
     els.pointColorBy.addEventListener("change", updateColorModeVisibility);
@@ -702,7 +710,6 @@
     els.classHideAll.addEventListener("click", () => setClassificationVisibility(false));
 
     els.applyBtn.addEventListener("click", applySettings);
-    els.applyTransparencyBtn.addEventListener("click", applyTransparency);
     els.resetBtn.addEventListener("click", () => {
       applyPreset("balanced");
       els.elevationBottom.value = "";
@@ -714,7 +721,6 @@
       els.intensityLowColor.value = "#111111";
       els.intensityHighColor.value = "#ffffff";
       buildClassificationList();
-      els.viewerTransparency.value = "0";
       syncLabels();
       setStatus("Reset to Balanced preset.");
     });
