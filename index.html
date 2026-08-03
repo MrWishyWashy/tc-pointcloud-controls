@@ -250,7 +250,8 @@
           <span>Point budget</span>
           <span id="pointBudgetValue">3000000</span>
         </label>
-        <input id="pointBudget" type="range" min="250000" max="10000000" step="250000" value="3000000">
+        <input id="pointBudget" type="range" min="250000" max="20000000" step="250000" value="3000000">
+        <div class="hint">The old 10,000,000 cap here was just a number I picked, not a confirmed hard limit - it's raised in case higher values work.</div>
       </div>
 
       <div class="row">
@@ -258,25 +259,17 @@
           <span>Density bias</span>
           <span id="densityBiasValue">0.50</span>
         </label>
-        <input id="densityBias" type="range" min="0" max="2" step="0.05" value="0.5">
+        <input id="densityBias" type="range" min="0" max="5" step="0.1" value="0.5">
+        <div class="hint">Trimble's docs describe this as loading more points without changing their size - worth pushing higher if distant areas stay sparse until you get close.</div>
       </div>
 
       <div class="row">
         <label for="pointSize">
           <span>Point size</span>
-          <span id="pointSizeValue">0.010</span>
+          <span id="pointSizeValue">0.30</span>
         </label>
-        <input id="pointSize" type="range" min="0" max="0.05" step="0.001" value="0.010">
-      </div>
-
-      <div class="row">
-        <label for="pointShape">Point shape</label>
-        <select id="pointShape">
-          <option value="0">Square</option>
-          <option value="1">Circle</option>
-          <option value="2">Paraboloid</option>
-        </select>
-        <div class="hint">Point size scale isn't consistent across shapes - re-check the Point size slider after switching shape.</div>
+        <input id="pointSize" type="range" min="0" max="1" step="0.01" value="0.30">
+        <div class="hint">Shown on a friendly 0-1 scale - internally this maps to the point cloud's actual 0.000-0.010 point size range.</div>
       </div>
 
       <div class="row">
@@ -459,7 +452,6 @@
       densityBiasValue: document.getElementById("densityBiasValue"),
       pointSize: document.getElementById("pointSize"),
       pointSizeValue: document.getElementById("pointSizeValue"),
-      pointShape: document.getElementById("pointShape"),
       shading: document.getElementById("shading"),
       edlStrength: document.getElementById("edlStrength"),
       edlStrengthValue: document.getElementById("edlStrengthValue"),
@@ -627,7 +619,7 @@
     function syncLabels() {
       els.pointBudgetValue.textContent = Number(els.pointBudget.value).toLocaleString();
       els.densityBiasValue.textContent = Number(els.densityBias.value).toFixed(2);
-      els.pointSizeValue.textContent = Number(els.pointSize.value).toFixed(3);
+      els.pointSizeValue.textContent = Number(els.pointSize.value).toFixed(2);
       els.edlStrengthValue.textContent = Number(els.edlStrength.value).toFixed(1);
       els.edlRadiusValue.textContent = Number(els.edlRadius.value).toFixed(1);
     }
@@ -662,8 +654,11 @@
       const settings = {
         pointBudget: Number(els.pointBudget.value),
         densityBias: Number(els.densityBias.value),
-        pointSize: Number(els.pointSize.value),
-        pointShape: Number(els.pointShape.value),
+        // pointSize is shown on a friendly 0-1 scale; the real API value is
+        // 1/100th of that (0.000-0.010), which is the point cloud's actual
+        // useful range.
+        pointSize: Number(els.pointSize.value) / 100,
+        pointShape: 1, // CIRCLE - the only shape worth exposing in practice
         shading: els.shading.value,
         edlStrength: Number(els.edlStrength.value),
         edlRadius: Number(els.edlRadius.value),
@@ -699,7 +694,7 @@
         fast: {
           pointBudget: 1000000,
           densityBias: 0.10,
-          pointSize: 0.006,
+          pointSize: 0.30,
           shading: "DEFAULT",
           edlStrength: 0.0,
           edlRadius: 0.0,
@@ -709,7 +704,7 @@
         balanced: {
           pointBudget: 3000000,
           densityBias: 0.50,
-          pointSize: 0.010,
+          pointSize: 0.30,
           shading: "EYE_DOME_LIGHTING",
           edlStrength: 1.0,
           edlRadius: 1.5,
@@ -717,9 +712,9 @@
           pointColorBy: "RGB"
         },
         high: {
-          pointBudget: 6000000,
-          densityBias: 0.90,
-          pointSize: 0.014,
+          pointBudget: 8000000,
+          densityBias: 2.00,
+          pointSize: 0.30,
           shading: "EYE_DOME_LIGHTING",
           edlStrength: 1.4,
           edlRadius: 1.8,
@@ -727,9 +722,9 @@
           pointColorBy: "RGB"
         },
         max: {
-          pointBudget: 10000000,
-          densityBias: 1.50,
-          pointSize: 0.020,
+          pointBudget: 20000000,
+          densityBias: 4.00,
+          pointSize: 0.30,
           shading: "EYE_DOME_LIGHTING",
           edlStrength: 1.8,
           edlRadius: 2.2,
@@ -742,7 +737,6 @@
       els.pointBudget.value = p.pointBudget;
       els.densityBias.value = p.densityBias;
       els.pointSize.value = p.pointSize;
-      els.pointShape.value = "0";
       els.shading.value = p.shading;
       els.edlStrength.value = p.edlStrength;
       els.edlRadius.value = p.edlRadius;
