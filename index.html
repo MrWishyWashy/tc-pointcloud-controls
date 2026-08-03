@@ -203,6 +203,42 @@
       padding: 6px 8px;
       font-size: 12px;
     }
+
+    .pc-list {
+      margin-top: 8px;
+    }
+
+    .pc-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .pc-row:last-child {
+      border-bottom: none;
+    }
+
+    .pc-row .pc-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pc-row .pc-id {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .pc-empty {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 0;
+    }
   </style>
 </head>
 <body>
@@ -212,6 +248,18 @@
       Tune how many points stay visible and how the cloud is drawn.
       Higher values can look better but may reduce performance.
     </p>
+
+    <div class="card">
+      <div class="small">Point clouds in this project</div>
+      <div class="pc-list" id="pointCloudList">
+        <div class="pc-empty">Loadingâ¦</div>
+      </div>
+      <button type="button" id="refreshPointCloudsBtn" class="full secondary">Refresh list</button>
+      <div class="hint">
+        Only lists point clouds Trimble Connect reports via the extension API. If a point cloud
+        was loaded from the file tree rather than added programmatically, it may not appear here yet.
+      </div>
+    </div>
 
     <div class="card">
       <div class="small">Presets</div>
@@ -366,7 +414,7 @@
         <button id="resetBtn" class="secondary">Reset</button>
       </div>
 
-      <div class="status" id="status">Connecting to Trimble Connect…</div>
+      <div class="status" id="status">Connecting to Trimble Connectâ¦</div>
     </div>
   </div>
 
@@ -446,7 +494,9 @@
       presetBalanced: document.getElementById("presetBalanced"),
       presetHigh: document.getElementById("presetHigh"),
       presetMax: document.getElementById("presetMax"),
-      status: document.getElementById("status")
+      status: document.getElementById("status"),
+      pointCloudList: document.getElementById("pointCloudList"),
+      refreshPointCloudsBtn: document.getElementById("refreshPointCloudsBtn")
     };
 
     function setStatus(msg) {
@@ -479,10 +529,16 @@
 
     function hexToColor(hex) {
       const v = hex.replace("#", "");
+      // NOTE: the public SDK docs say IColor.r/g/b are integers in [0, 255].
+      // But Trimble's actual point-cloud renderer (web3d-plugin-potreemanager)
+      // builds default colors like `new Color(.5, .5, .5)` - the Three.js
+      // convention of floats in [0, 1]. Sending 0-255 integers was producing
+      // flat/white points, so this sends [0, 1] floats instead as a test.
+      // If this turns out wrong, revert to the /255-less integer version.
       return {
-        r: parseInt(v.substring(0, 2), 16),
-        g: parseInt(v.substring(2, 4), 16),
-        b: parseInt(v.substring(4, 6), 16)
+        r: Math.round((parseInt(v.substring(0, 2), 16) / 255) * 1000) / 1000,
+        g: Math.round((parseInt(v.substring(2, 4), 16) / 255) * 1000) / 1000,
+        b: Math.round((parseInt(v.substring(4, 6), 16) / 255) * 1000) / 1000
       };
     }
 
@@ -615,6 +671,67 @@
       syncLabels();
     }
 
+    function pointCloudDisplayName(cloud) {
+      try {
+        const path = new URL(cloud.url).pathname;
+        const file = path.substring(path.lastIndexOf("/") + 1);
+        return decodeURIComponent(file) || cloud.id;
+      } catch {
+        return cloud.id;
+      }
+    }
+
+    async function toggleCloudVisibility(cloud, visible) {
+      if (!API) return;
+      try {
+        // NOTE: this re-uses addPointCloud() with the same id/url as an
+        // upsert to change visibility, since there's no dedicated
+        // "set point cloud visibility" method in the public API. This is
+        // unverified against Trimble Connect's real behavior - watch the
+        // console after toggling a checkbox to confirm it actually works.
+        const payload = { ...cloud, visible };
+        console.log("[PointCloudControls] toggling visibility ->", payload);
+        const ok = await API.viewer.addPointCloud(payload);
+        console.log("[PointCloudControls] addPointCloud (visibility toggle) resolved ->", ok);
+        setStatus(ok ? `Visibility updated for ${pointCloudDisplayName(cloud)}.` : "Trimble Connect did not accept the visibility change.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Failed to change visibility. Check browser console.");
+      }
+    }
+
+    async function refreshPointCloudList() {
+      if (!API) return;
+      els.pointCloudList.innerHTML = '<div class="pc-empty">Loadingâ¦</div>';
+      try {
+        const clouds = await API.viewer.getPointClouds();
+        console.log("[PointCloudControls] refreshPointCloudList getPointClouds() ->", clouds);
+
+        if (!clouds || !clouds.length) {
+          els.pointCloudList.innerHTML = '<div class="pc-empty">No point clouds found via the extension API.</div>';
+          return;
+        }
+
+        els.pointCloudList.innerHTML = "";
+        clouds.forEach(cloud => {
+          const row = document.createElement("div");
+          row.className = "pc-row";
+          const checked = cloud.visible !== false ? "checked" : "";
+          row.innerHTML = `
+            <input type="checkbox" ${checked}>
+            <span class="pc-name">${pointCloudDisplayName(cloud)}<span class="pc-id">${cloud.id}</span></span>
+          `;
+          row.querySelector("input").addEventListener("change", e => {
+            toggleCloudVisibility(cloud, e.target.checked);
+          });
+          els.pointCloudList.appendChild(row);
+        });
+      } catch (err) {
+        console.error(err);
+        els.pointCloudList.innerHTML = '<div class="pc-empty">Could not load point clouds. Check browser console.</div>';
+      }
+    }
+
     // Finds point cloud model IDs to target with setPointCloudSettings.
     // getPointClouds() only returns clouds added via addPointCloud() - not
     // ones loaded from the project file tree - but that's what showed data
@@ -690,6 +807,7 @@
         );
 
         setStatus("Connected. Adjust settings and click Apply.");
+        refreshPointCloudList();
 
         // Diagnostics only - safe to ignore if these fail.
         try {
@@ -723,6 +841,7 @@
     els.classHideAll.addEventListener("click", () => setClassificationVisibility(false));
 
     els.applyBtn.addEventListener("click", applySettings);
+    els.refreshPointCloudsBtn.addEventListener("click", refreshPointCloudList);
     els.resetBtn.addEventListener("click", () => {
       applyPreset("balanced");
       els.elevationBottom.value = "";
